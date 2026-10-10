@@ -43,6 +43,10 @@
       "description": "Duration of short breaks in minutes",
       "label": "Short Break Duration"
     },
+    "track-history": {
+      "description": "Log each completed work session and break to history.jsonl in the plugin's data directory, and show today's count and the last 7 days in the panel. Skipped and reset stages are not logged.",
+      "label": "Track History"
+    },
     "use-bundled-alarm-sound": {
       "description": "Uses bundled alarm sound when work/break is over. Make sure to silence the default notification sound with filters. Read the plugin docs for more info.",
       "label": "Use Bundled Alarm Sound"
@@ -67,5 +71,11 @@
     }
   },
   "short-break": "Short Break",
+  "stats": {
+    "today": {
+      "one": "Today: {count} pomodoro · {time}",
+      "other": "Today: {count} pomodoros · {time}"
+    }
+  },
   "work": "Work"
 }

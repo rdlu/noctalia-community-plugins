@@ -9,6 +9,7 @@ local config = (function()
         useBundledAlarmSound = noctalia.getConfig("use-bundled-alarm-sound") == true,
         enableWorkTimerSound = noctalia.getConfig("enable-work-timer-sound") == true,
         bypassNoctaliaSoundGlobals = noctalia.getConfig("bypass-noctalia-sound-globals") == true,
+        trackHistory = noctalia.getConfig("track-history") ~= false,
     }
 end)()
 noctalia.state.set("pomodoro.config", config)
@@ -26,6 +27,12 @@ sounds.init({
     useBundledAlarmSound = config.useBundledAlarmSound,
     enableWorkTimerSound = config.enableWorkTimerSound,
 })
+
+local history = require("./src/history.luau")
+if config.trackHistory then
+    history.init()
+    noctalia.state.set("pomodoro.history", history.daily())
+end
 
 local isRunning = false
 local sessionPtr = { session = 1, stage = 1 }
@@ -152,8 +159,27 @@ local function notifyStageFinished(state, sessionData)
     noctalia.notify("Pomodoro Timer", body)
 end
 
+local function recordStageFinished(state, sessionData)
+    local sessionNumber = state.sessionPtr.session
+    local stageNumber = state.sessionPtr.stage
+    local stageSeconds = sessionData[sessionNumber][stageNumber]
+    if not config.trackHistory or stageSeconds <= 0 then
+        return
+    end
+    local stage =
+        if stageNumber == 1 then
+            "work"
+        elseif sessionNumber < #sessionData then
+            "short_break"
+        else
+            "long_break"
+    history.record(stage, math.floor(stageSeconds / 60), sessionNumber)
+    noctalia.state.set("pomodoro.history", history.daily())
+end
+
 noctalia.state.watch("pomodoro.state", function(state)
     if state.secondsLeft == 0 then
+        recordStageFinished(state, sessionData)
         notifyStageFinished(state, sessionData)
         noctalia.state.set("pomodoro.nextCommand", "skip")
         if (config.autoStartWork and state.sessionPtr.stage == 2) or (config.autoStartBreaks and state.sessionPtr.stage == 1) then

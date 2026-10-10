@@ -13,6 +13,52 @@ local function formatTime(seconds, total)
   end
 end
 
+local function formatMinutes(minutes)
+    local hours = math.floor(minutes / 60)
+    local mins = minutes % 60
+    if hours == 0 then
+        return string.format("%dm", mins)
+    end
+    return string.format("%dh %02dm", hours, mins)
+end
+
+local function dayKey(daysAgo)
+    local now = math.floor(noctalia.nowMs() / 1000)
+    return noctalia.formatTime("%Y-%m-%d", now - daysAgo * 86400)
+end
+
+-- Today's completed work sessions, then one bar per day for the last 7 days.
+local function statsRow(daily)
+    local today = daily[dayKey(0)] or { count = 0, minutes = 0 }
+    local maxCount = 1
+    for i = 0, 6 do
+        local day = daily[dayKey(i)]
+        if day and day.count > maxCount then
+            maxCount = day.count
+        end
+    end
+    local bars = {}
+    for i = 6, 0, -1 do
+        local key = dayKey(i)
+        local count = if daily[key] then daily[key].count else 0
+        table.insert(bars, ui.box({
+            width = 6,
+            height = 3 + math.floor(15 * count / maxCount),
+            radius = 2,
+            fill = if i == 0 then "primary" else "on_surface_variant",
+        }))
+    end
+    return ui.row({ align = "center", gap = 8 }, {
+        ui.label({
+            text = noctalia.trp("stats.today", today.count, { time = formatMinutes(today.minutes) }),
+            fontSize = 12,
+            color = "on_surface_variant",
+            flexGrow = 1,
+        }),
+        ui.row({ align = "end", gap = 3 }, bars),
+    })
+end
+
 function onStartButtonClick()
     noctalia.state.set("pomodoro.nextCommand", "toggle")
 end
@@ -29,7 +75,7 @@ function onResetAllButtonClick()
     noctalia.state.set("pomodoro.nextCommand", "resetAll")
 end
 
-local function render(state, sessionData)
+local function render(state, sessionData, daily)
     if not state or not state.sessionPtr or not sessionData then
         panel.render(
             ui.column({ flexGrow = 1, align = "center", justify = "center", gap = 8 }, {
@@ -157,12 +203,17 @@ local function render(state, sessionData)
                     }),
                 }),
             }),
+
+            -- stats (only while track-history is on)
+            if daily then statsRow(daily) else nil,
         }) -- column
     ) -- panel
 end
 
 local function refresh()
-    render(noctalia.state.get("pomodoro.state"), noctalia.state.get("pomodoro.sessionData"))
+    local config = noctalia.state.get("pomodoro.config")
+    local daily = if config and config.trackHistory then noctalia.state.get("pomodoro.history") or {} else nil
+    render(noctalia.state.get("pomodoro.state"), noctalia.state.get("pomodoro.sessionData"), daily)
 end
 
 function onOpen(context)
@@ -175,6 +226,10 @@ noctalia.state.watch("pomodoro.state", function(state)
 end)
 
 noctalia.state.watch("pomodoro.sessionData", function(_sessionData)
+    refresh()
+end)
+
+noctalia.state.watch("pomodoro.history", function(_daily)
     refresh()
 end)
 

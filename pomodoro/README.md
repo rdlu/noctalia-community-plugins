@@ -9,6 +9,7 @@ A Pomodoro timer plugin for Noctalia for productivity. Initially ported from the
 - **Bar Widget**: Shows status and remaining time on the bar widget when the panel is closed.
 - **Notifications**: Toast notification + alarm sound when work/break finishes.
 - **Ticking Sound**: Optional tick/tock sounds each second while a work session is running.
+- **History**: Logs completed stages to a local JSONL file and shows today's count and the last 7 days in the panel.
 
 ## TODO
 - IPC
@@ -94,6 +95,28 @@ noctalia msg panel-toggle thepunkoff/pomodoro:panel
 | `enable-work-timer-sound` | `bool` | `false` | Play tick/tock sounds each second while a work session is running. Break timers stay silent. |
 | `use-bundled-alarm-sound` | `bool` | `false` | Use the bundled alarm sound when work/break is over. |
 | `bypass-noctalia-sound-globals` | `bool` | `false` | Ignore Noctalia's global sound settings and play bundled sounds directly via `ffplay`. |
+| `track-history` | `bool` | `true` | Log completed work sessions and breaks to `history.jsonl` and show today's stats in the panel. See [History](#history). |
+
+## History
+
+With `track-history` on (the default), every stage that runs out on its own is appended to
+`history.jsonl` in the plugin's data directory (`~/.local/state/noctalia/plugins/data/thepunkoff/pomodoro/`).
+Skipped and reset stages are not logged. One JSON object per line:
+
+```json
+{"ts":1791659103,"date":"2026-10-10","stage":"work","minutes":25,"session":2}
+```
+
+- `ts`: Unix time the stage finished; `date`: that day in local time.
+- `stage`: `work`, `short_break` or `long_break`; `minutes`: the stage's configured length.
+- `session`: position in the cycle (1 to `sessions-before-long-break`).
+
+The panel shows today's completed work sessions and focus time, plus a bar per day for the last
+7 days. For weekly summaries, process the file directly, for example:
+
+```sh
+jq -s 'map(select(.stage == "work")) | group_by(.date) | map({date: .[0].date, pomodoros: length, minutes: (map(.minutes) | add)})' history.jsonl
+```
 
 ## IPC
 ```sh
